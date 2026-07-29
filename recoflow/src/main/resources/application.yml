@@ -1,0 +1,56 @@
+server:
+  port: ${APP_PORT:8080}
+
+spring:
+  application:
+    name: recoflow
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5433}/${DB_NAME:recoflow}
+    username: ${DB_USERNAME:recoflow}
+    password: ${DB_PASSWORD:recoflow_dev_password}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      acks: all
+      properties:
+        enable.idempotence: true
+    consumer:
+      group-id: ${KAFKA_PRODUCT_VIEWS_CONSUMER_GROUP:recoflow-product-views}
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+      properties:
+        spring.json.trusted.packages: com.besteaydogan.recoflow.messaging.model
+    listener:
+      ack-mode: record
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: never
+
+recoflow:
+  kafka:
+    product-views-topic: ${KAFKA_PRODUCT_VIEWS_TOPIC:product-views}
+  producer:
+    enabled: ${PRODUCT_VIEW_PRODUCER_ENABLED:false}
+    file-path: ${PRODUCT_VIEWS_FILE_PATH:/app/data/product-views.json}
+    interval: ${PRODUCT_VIEW_INTERVAL_MS:1s}
+  bestseller:
+    refresh-enabled: ${BESTSELLER_REFRESH_ENABLED:true}
+    refresh-interval: ${BESTSELLER_REFRESH_INTERVAL_MS:30s}
