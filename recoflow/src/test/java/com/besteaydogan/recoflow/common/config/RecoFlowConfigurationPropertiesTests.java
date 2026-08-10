@@ -22,6 +22,12 @@ class RecoFlowConfigurationPropertiesTests {
                     assertThat(context).hasNotFailed();
                     assertThat(context.getBean(ProductViewKafkaProperties.class).productViewsTopic())
                             .isEqualTo("product-views");
+                    assertThat(context.getBean(ProductViewKafkaProperties.class).productViewsDltTopic())
+                            .isEqualTo("product-views.DLT");
+                    assertThat(context.getBean(ProductViewKafkaProperties.class).retryMaxAttempts())
+                            .isEqualTo(3);
+                    assertThat(context.getBean(ProductViewKafkaProperties.class).retryBackoff())
+                            .isEqualTo(Duration.ofMillis(250));
                     assertThat(context.getBean(ProductViewProducerProperties.class).filePath())
                             .isEqualTo("/app/data/product-views.json");
                     assertThat(context.getBean(ProductViewProducerProperties.class).enabled()).isFalse();
@@ -70,6 +76,8 @@ class RecoFlowConfigurationPropertiesTests {
         return contextRunner
                 .withPropertyValues(
                         "recoflow.kafka.product-views-topic=product-views",
+                        "recoflow.kafka.retry-max-attempts=3",
+                        "recoflow.kafka.retry-backoff=250ms",
                         "recoflow.producer.enabled=false",
                         "recoflow.producer.file-path=/app/data/product-views.json",
                         "recoflow.producer.interval=750ms",

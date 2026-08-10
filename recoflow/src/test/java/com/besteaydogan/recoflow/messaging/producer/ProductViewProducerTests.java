@@ -36,7 +36,7 @@ class ProductViewProducerTests {
         Instant now = Instant.parse("2026-07-29T10:15:30Z");
         ProductViewProducer producer = new ProductViewProducer(
                 kafkaTemplate,
-                new ProductViewKafkaProperties("product-views"),
+                new ProductViewKafkaProperties("product-views", 3, Duration.ofSeconds(1)),
                 new ProductViewProducerProperties(true, "ignored.json", Duration.ofSeconds(1)),
                 Clock.fixed(now, ZoneOffset.UTC),
                 delay

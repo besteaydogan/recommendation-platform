@@ -47,6 +47,8 @@ management:
 recoflow:
   kafka:
     product-views-topic: ${KAFKA_PRODUCT_VIEWS_TOPIC:product-views}
+    retry-max-attempts: ${KAFKA_CONSUMER_RETRY_MAX_ATTEMPTS:3}
+    retry-backoff: ${KAFKA_CONSUMER_RETRY_BACKOFF:1s}
   producer:
     enabled: ${PRODUCT_VIEW_PRODUCER_ENABLED:false}
     file-path: ${PRODUCT_VIEWS_FILE_PATH:/app/data/product-views.json}
