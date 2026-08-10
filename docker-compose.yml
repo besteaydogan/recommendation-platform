@@ -44,7 +44,7 @@ services:
       retries: 12
       start_period: 20s
 
-  recoflow:
+  recommendation-platform:
     build:
       context: .
       dockerfile: Dockerfile

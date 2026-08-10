@@ -1,6 +1,6 @@
-# RecoFlow
+# Recommendation Platform
 
-RecoFlow is a Spring Boot recommendation backend combining Kafka-based product-view ingestion with PostgreSQL bestseller queries and REST APIs.
+Recommendation Platform is a Spring Boot backend combining Kafka-based product-view ingestion with PostgreSQL bestseller queries and REST APIs.
 
 ## Assignment requirements covered
 
@@ -36,7 +36,7 @@ Bestseller SQL
 Recommendation Service
 ```
 
-RecoFlow is one deployable modular monolith. See [architecture details](docs/architecture.md) and [database details](docs/database.md).
+Recommendation Platform is one deployable modular monolith. See [architecture details](docs/architecture.md) and [database details](docs/database.md).
 
 ## Technology choices
 
@@ -45,13 +45,13 @@ RecoFlow is one deployable modular monolith. See [architecture details](docs/arc
 - **Kafka:** Carries product-view events keyed by user ID.
 - **PostgreSQL:** Stores browsing history and executes category and bestseller aggregations.
 - **Flyway:** Validates and applies versioned schema migrations.
-- **Docker Compose:** Runs PostgreSQL, Kafka, and RecoFlow together.
+- **Docker Compose:** Runs PostgreSQL, Kafka, and the application together.
 - **JUnit 5, Mockito, and Testcontainers:** Cover unit, web-slice, and PostgreSQL repository behavior.
 
 ## Database assumptions
 
 - `products`, `orders`, and `order_items` are assignment-owned source tables.
-- `product_views` is owned by RecoFlow.
+- `product_views` is owned by Recommendation Platform.
 - The provided `orders` dataset represents the last-month purchase window.
 - The verified source schema has no order timestamp, so runtime rolling-window filtering is not possible.
 - A production dataset containing historical orders would require an indexed timestamp and an explicit cutoff predicate.
@@ -65,7 +65,7 @@ Copy `.env.example` to `.env` for local overrides. Duration values accept Spring
 
 | Variable | Purpose | Default |
 | --- | --- | --- |
-| `APP_PORT` | RecoFlow HTTP port | `8080` |
+| `APP_PORT` | Application HTTP port | `8080` |
 
 ### Database
 
@@ -178,10 +178,9 @@ Valid requests return HTTP 200. Validation failures and unexpected HTTP failures
 
 ## Testing
 
-From the application directory:
+From the repository root:
 
 ```powershell
-cd recoflow
 .\mvnw.cmd clean test
 .\mvnw.cmd clean package
 ```

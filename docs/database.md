@@ -1,4 +1,4 @@
-# RecoFlow Database
+# Recommendation Platform Database
 
 ## Assignment-owned source tables
 
@@ -10,11 +10,11 @@ The original assignment image (`mvchub/postgres:13`, database `data-db`) was ins
 
 There is no category table, product foreign key, order timestamp, or order status. The assignment states that `orders` already contains only the last month. For an empty local database, migration V1 creates only this verified source shape and never replaces an existing table.
 
-## RecoFlow-owned table
+## Application-owned table
 
 `product_views` stores one row per view. `message_id` is a UUID with a unique constraint and is the duplicate-event guard. User and product identifiers remain compatible with the assignment's `varchar(50)` identifiers. Timestamps use PostgreSQL `timestamp with time zone`.
 
-`product_views.product_id` intentionally has no foreign key to `products`. The assignment event stream can contain unknown product IDs, and RecoFlow preserves those views instead of rejecting them. Category-based recommendation queries naturally consider only views whose product ID resolves through the `products` join.
+`product_views.product_id` intentionally has no foreign key to `products`. The assignment event stream can contain unknown product IDs, and Recommendation Platform preserves those views instead of rejecting them. Category-based recommendation queries naturally consider only views whose product ID resolves through the `products` join.
 
 ## Query indexes
 
@@ -28,7 +28,7 @@ The original source tables had only primary-key indexes. No separate `message_id
 
 ## Last-Month Order Window
 
-The assignment-provided `orders` table contains only orders from the last month. The verified schema does not include an order timestamp. RecoFlow therefore treats the source table itself as the monthly time window: bestseller queries count distinct purchasing users over all rows in that provided monthly dataset and do not infer time from order IDs or add an unsupported date predicate.
+The assignment-provided `orders` table contains only orders from the last month. The verified schema does not include an order timestamp. Recommendation Platform therefore treats the source table itself as the monthly time window: bestseller queries count distinct purchasing users over all rows in that provided monthly dataset and do not infer time from order IDs or add an unsupported date predicate.
 
 This is a dataset-boundary guarantee, not a rolling runtime cutoff. A production system that retains historical orders would require an indexed order timestamp and an explicit cutoff condition.
 

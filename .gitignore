@@ -1,3 +1,33 @@
-.env
+# Build output
+/target/
+*.class
 
-recoflow/docs/*.docx
+# Local environment and Spring overrides
+.env
+.env.*
+!.env.example
+application-local.yml
+application-local.yaml
+
+# IDE metadata
+.idea/
+.vscode/
+.settings/
+*.iml
+.classpath
+.project
+.factorypath
+
+# Logs and JVM crash files
+*.log
+logs/
+hs_err_pid*
+replay_pid*
+
+# Operating system files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Local documentation artifacts
+docs/*.docx

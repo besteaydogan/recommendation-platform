@@ -1,8 +1,8 @@
-# RecoFlow Architecture
+# Recommendation Platform Architecture
 
 ## Modular monolith
 
-RecoFlow is a modular monolith: one deployable Spring Boot application with package boundaries organized by business capability. A package may be extracted into a separate service later only when operational requirements justify the additional deployment and coordination cost.
+Recommendation Platform is a modular monolith: one deployable Spring Boot application with package boundaries organized by business capability. A package may be extracted into a separate service later only when operational requirements justify the additional deployment and coordination cost.
 
 ## Feature areas
 
@@ -73,7 +73,7 @@ orders + order_items + products
 
 The cache stores only the general top ten. Personalized requests execute one combined, parameterized category query so cross-category ranking remains correct.
 
-The assignment-provided `orders` table is the last-month data boundary and has no timestamp column. RecoFlow does not claim or fabricate a rolling SQL cutoff. A production source containing historical orders would need an indexed order timestamp and an explicit cutoff predicate.
+The assignment-provided `orders` table is the last-month data boundary and has no timestamp column. Recommendation Platform does not claim or fabricate a rolling SQL cutoff. A production source containing historical orders would need an indexed order timestamp and an explicit cutoff predicate.
 
 ## Scheduler and cache
 

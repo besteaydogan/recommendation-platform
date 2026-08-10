@@ -12,9 +12,9 @@
     </parent>
 
     <groupId>com.besteaydogan</groupId>
-    <artifactId>recoflow</artifactId>
+    <artifactId>recommendation-platform</artifactId>
     <version>0.0.1-SNAPSHOT</version>
-    <name>RecoFlow</name>
+    <name>Recommendation Platform</name>
     <description>Real-time recommendation platform</description>
 
     <properties>
