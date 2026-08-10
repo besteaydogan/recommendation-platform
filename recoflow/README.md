@@ -88,6 +88,10 @@ Copy `.env.example` to `.env` for local overrides. Duration values accept Spring
 | `KAFKA_BOOTSTRAP_SERVERS` | Bootstrap address outside Compose | `localhost:9092` |
 | `KAFKA_PRODUCT_VIEWS_TOPIC` | Product-view topic | `product-views` |
 | `KAFKA_PRODUCT_VIEWS_CONSUMER_GROUP` | Product-view consumer group | `recoflow-product-views` |
+| `KAFKA_CONSUMER_RETRY_MAX_ATTEMPTS` | Total consumer delivery attempts before DLT | `3` |
+| `KAFKA_CONSUMER_RETRY_BACKOFF` | Fixed delay between consumer attempts | `1s` |
+
+After the configured attempts are exhausted, failed product-view records are published to `<product-view-topic>.DLT`.
 
 ### Producer
 
@@ -189,7 +193,6 @@ Repository tests use PostgreSQL through Testcontainers and therefore require Doc
 - One deployable modular monolith
 - In-memory general bestseller cache with no distributed cache
 - No authentication
-- No dead-letter queue
 - No historical rolling-window filter because the source schema has no order timestamp
 - Unknown product-view IDs are retained according to the documented schema decision
 - Not production-ready
