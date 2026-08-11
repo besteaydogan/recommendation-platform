@@ -3,13 +3,15 @@ package com.besteaydogan.recoflow.messaging.consumer;
 import java.time.Instant;
 import java.util.UUID;
 
+import com.besteaydogan.recoflow.common.observability.RecoFlowMetrics;
 import com.besteaydogan.recoflow.history.application.ProductViewHistoryService;
 import com.besteaydogan.recoflow.messaging.model.ProductViewEvent;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.dao.DataIntegrityViolationException;
 
-import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -20,11 +22,13 @@ class ProductViewConsumerTests {
 
     private ProductViewHistoryService historyService;
     private ProductViewConsumer consumer;
+    private SimpleMeterRegistry meterRegistry;
 
     @BeforeEach
     void setUp() {
         historyService = mock(ProductViewHistoryService.class);
-        consumer = new ProductViewConsumer(historyService);
+        meterRegistry = new SimpleMeterRegistry();
+        consumer = new ProductViewConsumer(historyService, new RecoFlowMetrics(meterRegistry));
     }
 
     @Test
@@ -35,6 +39,10 @@ class ProductViewConsumerTests {
         consumer.consume(event);
 
         verify(historyService).record(event);
+        assertThat(meterRegistry.get(RecoFlowMetrics.KAFKA_CONSUMER_EVENTS).counter().count())
+                .isEqualTo(1);
+        assertThat(meterRegistry.get(RecoFlowMetrics.KAFKA_CONSUMER_FAILURES).counter().count())
+                .isZero();
     }
 
     @Test
@@ -48,16 +56,18 @@ class ProductViewConsumerTests {
     }
 
     @Test
-    void concurrentUniqueConstraintDuplicateIsIgnored() {
+    void persistenceFailureIsPropagatedForKafkaRetryHandling() {
         ProductViewEvent event = validEvent("product-173");
-        when(historyService.record(event)).thenThrow(new DataIntegrityViolationException(
-                "duplicate",
-                new IllegalStateException("constraint uk_product_views_message_id")
-        ));
+        IllegalStateException failure = new IllegalStateException("database unavailable");
+        when(historyService.record(event)).thenThrow(failure);
 
-        assertThatCode(() -> consumer.consume(event)).doesNotThrowAnyException();
+        assertThatThrownBy(() -> consumer.consume(event)).isSameAs(failure);
 
         verify(historyService).record(event);
+        assertThat(meterRegistry.get(RecoFlowMetrics.KAFKA_CONSUMER_EVENTS).counter().count())
+                .isEqualTo(1);
+        assertThat(meterRegistry.get(RecoFlowMetrics.KAFKA_CONSUMER_FAILURES).counter().count())
+                .isEqualTo(1);
     }
 
     @Test

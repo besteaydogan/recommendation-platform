@@ -5,11 +5,13 @@ import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
 
+import com.besteaydogan.recoflow.common.observability.RecoFlowMetrics;
 import com.besteaydogan.recoflow.history.application.ProductViewHistoryService;
 import com.besteaydogan.recoflow.history.infrastructure.ProductViewRepository;
 import com.besteaydogan.recoflow.history.infrastructure.TopCategoryQueryRepository;
 import com.besteaydogan.recoflow.messaging.model.ProductViewEvent;
 import com.besteaydogan.recoflow.recommendation.infrastructure.BestsellerQueryRepository;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -20,7 +22,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.support.serializer.JsonDeserializer;
@@ -62,6 +63,9 @@ class ProductViewConsumerFailureHandlingIntegrationTests {
     @Autowired
     private EmbeddedKafkaBroker embeddedKafka;
 
+    @Autowired
+    private MeterRegistry meterRegistry;
+
     @MockitoBean
     private ProductViewHistoryService historyService;
 
@@ -92,6 +96,8 @@ class ProductViewConsumerFailureHandlingIntegrationTests {
     void retryableFailureIsRetriedWithBackoffAndPublishedToDlt() throws Exception {
         ProductViewEvent event = validEvent(UUID.randomUUID());
         when(historyService.record(event)).thenThrow(new IllegalStateException("database unavailable"));
+        double failuresBefore = counterValue(RecoFlowMetrics.KAFKA_CONSUMER_FAILURES);
+        double dltMessagesBefore = counterValue(RecoFlowMetrics.KAFKA_DLT_MESSAGES);
 
         long startedAt = System.nanoTime();
         kafkaTemplate.send("product-views", event.userId(), event).get();
@@ -104,15 +110,16 @@ class ProductViewConsumerFailureHandlingIntegrationTests {
         assertThat(elapsed).isGreaterThanOrEqualTo(Duration.ofMillis(200));
         assertThat(dltRecord.key()).isEqualTo(event.userId());
         assertThat(dltRecord.value()).isEqualTo(event);
+        assertThat(counterValue(RecoFlowMetrics.KAFKA_CONSUMER_FAILURES))
+                .isEqualTo(failuresBefore + 3);
+        assertThat(counterValue(RecoFlowMetrics.KAFKA_DLT_MESSAGES))
+                .isEqualTo(dltMessagesBefore + 1);
     }
 
     @Test
     void duplicateMessageIdIsHandledOnceAndIsNotPublishedToDlt() throws Exception {
         ProductViewEvent event = validEvent(UUID.randomUUID());
-        when(historyService.record(event)).thenThrow(new DataIntegrityViolationException(
-                "duplicate",
-                new IllegalStateException("constraint uk_product_views_message_id")
-        ));
+        when(historyService.record(event)).thenReturn(false);
 
         kafkaTemplate.send("product-views", event.userId(), event).get();
 
@@ -139,6 +146,10 @@ class ProductViewConsumerFailureHandlingIntegrationTests {
                 new StringDeserializer(),
                 valueDeserializer
         ).createConsumer();
+    }
+
+    private double counterValue(String name) {
+        return meterRegistry.get(name).counter().count();
     }
 
     private ProductViewEvent validEvent(UUID messageId) {

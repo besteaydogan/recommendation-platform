@@ -3,15 +3,18 @@ package com.besteaydogan.recoflow.recommendation.application;
 import java.util.List;
 import java.util.stream.IntStream;
 
+import com.besteaydogan.recoflow.common.observability.RecoFlowMetrics;
 import com.besteaydogan.recoflow.history.infrastructure.TopCategoryQueryRepository;
 import com.besteaydogan.recoflow.recommendation.api.RecommendationResponse;
 import com.besteaydogan.recoflow.recommendation.api.RecommendationType;
 import com.besteaydogan.recoflow.recommendation.infrastructure.BestsellerQueryRepository;
 import com.besteaydogan.recoflow.recommendation.infrastructure.BestsellerRow;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -24,13 +27,20 @@ class RecommendationServiceTests {
     private BestsellerQueryRepository bestsellerRepository;
     private BestsellerRefreshService refreshService;
     private RecommendationService service;
+    private SimpleMeterRegistry meterRegistry;
 
     @BeforeEach
     void setUp() {
         categoryRepository = mock(TopCategoryQueryRepository.class);
         bestsellerRepository = mock(BestsellerQueryRepository.class);
         refreshService = mock(BestsellerRefreshService.class);
-        service = new RecommendationService(categoryRepository, bestsellerRepository, refreshService);
+        meterRegistry = new SimpleMeterRegistry();
+        service = new RecommendationService(
+                categoryRepository,
+                bestsellerRepository,
+                refreshService,
+                new RecoFlowMetrics(meterRegistry)
+        );
     }
 
     @Test
@@ -46,6 +56,10 @@ class RecommendationServiceTests {
         assertThat(response.products()).hasSize(10);
         verify(bestsellerRepository).findBestsellersForCategories(categories, 10);
         verifyNoInteractions(refreshService);
+        assertThat(meterRegistry.get(RecoFlowMetrics.RECOMMENDATION_REQUESTS).counter().count())
+                .isEqualTo(1);
+        assertThat(meterRegistry.get(RecoFlowMetrics.RECOMMENDATION_LATENCY).timer().count())
+                .isEqualTo(1);
     }
 
     @Test
@@ -101,6 +115,19 @@ class RecommendationServiceTests {
         RecommendationResponse response = service.recommend("user-120");
 
         assertThat(response.products()).hasSize(10);
+    }
+
+    @Test
+    void failedRecommendationIsIncludedInRequestCountAndLatency() {
+        IllegalStateException failure = new IllegalStateException("database unavailable");
+        when(categoryRepository.findTopCategories("user-120", 3)).thenThrow(failure);
+
+        assertThatThrownBy(() -> service.recommend("user-120")).isSameAs(failure);
+
+        assertThat(meterRegistry.get(RecoFlowMetrics.RECOMMENDATION_REQUESTS).counter().count())
+                .isEqualTo(1);
+        assertThat(meterRegistry.get(RecoFlowMetrics.RECOMMENDATION_LATENCY).timer().count())
+                .isEqualTo(1);
     }
 
     private void stubPersonalized(List<BestsellerRow> rows) {

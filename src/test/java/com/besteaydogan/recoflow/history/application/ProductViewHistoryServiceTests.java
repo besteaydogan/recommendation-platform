@@ -3,15 +3,13 @@ package com.besteaydogan.recoflow.history.application;
 import java.time.Instant;
 import java.util.UUID;
 
-import com.besteaydogan.recoflow.history.infrastructure.ProductView;
 import com.besteaydogan.recoflow.history.infrastructure.ProductViewRepository;
 import com.besteaydogan.recoflow.messaging.model.ProductViewEvent;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -23,28 +21,40 @@ class ProductViewHistoryServiceTests {
     @Test
     void persistsAValidEvent() {
         ProductViewEvent event = event();
+        doReturn(1).when(repository).insertIfAbsent(
+                event.messageId(),
+                event.userId(),
+                event.properties().productId(),
+                event.context().source(),
+                event.viewedAt()
+        );
 
         boolean inserted = service.record(event);
 
-        ArgumentCaptor<ProductView> captor = ArgumentCaptor.forClass(ProductView.class);
-        verify(repository).saveAndFlush(captor.capture());
         assertThat(inserted).isTrue();
-        assertThat(captor.getValue().getMessageId()).isEqualTo(event.messageId());
-        assertThat(captor.getValue().getUserId()).isEqualTo(event.userId());
-        assertThat(captor.getValue().getProductId()).isEqualTo(event.properties().productId());
-        assertThat(captor.getValue().getSource()).isEqualTo(event.context().source());
-        assertThat(captor.getValue().getViewedAt()).isEqualTo(event.viewedAt());
+        verify(repository).insertIfAbsent(
+                event.messageId(),
+                event.userId(),
+                event.properties().productId(),
+                event.context().source(),
+                event.viewedAt()
+        );
     }
 
     @Test
     void doesNotInsertAnExistingMessageId() {
         ProductViewEvent event = event();
-        when(repository.existsByMessageId(event.messageId())).thenReturn(true);
+        when(repository.insertIfAbsent(
+                event.messageId(),
+                event.userId(),
+                event.properties().productId(),
+                event.context().source(),
+                event.viewedAt()
+        )).thenReturn(0);
 
         boolean inserted = service.record(event);
 
         assertThat(inserted).isFalse();
-        verify(repository, never()).saveAndFlush(org.mockito.ArgumentMatchers.any(ProductView.class));
     }
 
     private ProductViewEvent event() {

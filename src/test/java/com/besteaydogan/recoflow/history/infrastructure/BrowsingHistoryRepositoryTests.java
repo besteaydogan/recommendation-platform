@@ -37,6 +37,29 @@ class BrowsingHistoryRepositoryTests {
     private ProductViewRepository repository;
 
     @Test
+    void insertIfAbsentUsesMessageIdAsDatabaseIdempotencyKey() {
+        UUID messageId = UUID.randomUUID();
+        Instant viewedAt = Instant.parse("2026-07-29T10:00:00Z");
+
+        int firstInsert = repository.insertIfAbsent(
+                messageId, "user-120", "product-10", "test", viewedAt
+        );
+        int duplicateInsert = repository.insertIfAbsent(
+                messageId, "user-other", "product-other", "test", viewedAt.plusSeconds(1)
+        );
+
+        assertThat(firstInsert).isEqualTo(1);
+        assertThat(duplicateInsert).isZero();
+        assertThat(repository.findAll())
+                .singleElement()
+                .satisfies(productView -> {
+                    assertThat(productView.getMessageId()).isEqualTo(messageId);
+                    assertThat(productView.getUserId()).isEqualTo("user-120");
+                    assertThat(productView.getProductId()).isEqualTo("product-10");
+                });
+    }
+
+    @Test
     void returnsLatestTenForOnlyRequestedUserInDescendingOrderWithRepeats() {
         Instant base = Instant.parse("2026-07-29T10:00:00Z");
         List<ProductView> views = new ArrayList<>();
