@@ -1,10 +1,10 @@
 package com.besteaydogan.recoflow.messaging.consumer;
 
+import com.besteaydogan.recoflow.common.observability.RecoFlowMetrics;
 import com.besteaydogan.recoflow.history.application.ProductViewHistoryService;
 import com.besteaydogan.recoflow.messaging.model.ProductViewEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 
@@ -14,9 +14,11 @@ public class ProductViewConsumer {
     private static final Logger LOGGER = LoggerFactory.getLogger(ProductViewConsumer.class);
 
     private final ProductViewHistoryService historyService;
+    private final RecoFlowMetrics metrics;
 
-    public ProductViewConsumer(ProductViewHistoryService historyService) {
+    public ProductViewConsumer(ProductViewHistoryService historyService, RecoFlowMetrics metrics) {
         this.historyService = historyService;
+        this.metrics = metrics;
     }
 
     @KafkaListener(
@@ -24,6 +26,7 @@ public class ProductViewConsumer {
             groupId = "${spring.kafka.consumer.group-id}"
     )
     public void consume(ProductViewEvent event) {
+        metrics.kafkaEventConsumed();
         String invalidReason = invalidReason(event);
         if (invalidReason != null) {
             LOGGER.warn("Skipping invalid product-view event: {}", invalidReason);
@@ -33,18 +36,12 @@ public class ProductViewConsumer {
         try {
             boolean inserted = historyService.record(event);
             if (inserted) {
-                LOGGER.info("Stored product-view message {}", event.messageId());
+                LOGGER.debug("Stored product-view message {}", event.messageId());
             } else {
-                LOGGER.info("Ignored duplicate product-view message {}", event.messageId());
+                LOGGER.debug("Ignored duplicate product-view message {}", event.messageId());
             }
-        } catch (DataIntegrityViolationException exception) {
-            if (isMessageIdDuplicate(exception)) {
-                LOGGER.info("Ignored concurrently duplicated product-view message {}", event.messageId());
-                return;
-            }
-            LOGGER.error("Failed to persist product-view message {}", event.messageId(), exception);
-            throw exception;
         } catch (RuntimeException exception) {
+            metrics.kafkaConsumerFailed();
             LOGGER.error("Failed to persist product-view message {}", event.messageId(), exception);
             throw exception;
         }
@@ -77,17 +74,5 @@ public class ProductViewConsumer {
 
     private boolean isBlank(String value) {
         return value == null || value.isBlank();
-    }
-
-    private boolean isMessageIdDuplicate(Throwable exception) {
-        Throwable current = exception;
-        while (current != null) {
-            if (current.getMessage() != null
-                    && current.getMessage().contains("uk_product_views_message_id")) {
-                return true;
-            }
-            current = current.getCause();
-        }
-        return false;
     }
 }
