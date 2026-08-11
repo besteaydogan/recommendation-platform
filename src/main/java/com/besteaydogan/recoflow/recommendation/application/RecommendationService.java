@@ -2,6 +2,7 @@ package com.besteaydogan.recoflow.recommendation.application;
 
 import java.util.List;
 
+import com.besteaydogan.recoflow.common.observability.RecoFlowMetrics;
 import com.besteaydogan.recoflow.history.infrastructure.TopCategoryQueryRepository;
 import com.besteaydogan.recoflow.recommendation.api.RecommendationResponse;
 import com.besteaydogan.recoflow.recommendation.api.RecommendationType;
@@ -19,18 +20,25 @@ public class RecommendationService {
     private final TopCategoryQueryRepository categoryRepository;
     private final BestsellerQueryRepository bestsellerRepository;
     private final BestsellerRefreshService refreshService;
+    private final RecoFlowMetrics metrics;
 
     public RecommendationService(
             TopCategoryQueryRepository categoryRepository,
             BestsellerQueryRepository bestsellerRepository,
-            BestsellerRefreshService refreshService
+            BestsellerRefreshService refreshService,
+            RecoFlowMetrics metrics
     ) {
         this.categoryRepository = categoryRepository;
         this.bestsellerRepository = bestsellerRepository;
         this.refreshService = refreshService;
+        this.metrics = metrics;
     }
 
     public RecommendationResponse recommend(String userId) {
+        return metrics.recordRecommendation(() -> calculateRecommendation(userId));
+    }
+
+    private RecommendationResponse calculateRecommendation(String userId) {
         List<String> categories = categoryRepository.findTopCategories(userId, CATEGORY_LIMIT);
         if (categories.isEmpty()) {
             return response(
