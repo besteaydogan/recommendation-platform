@@ -1,8 +1,8 @@
 package com.besteaydogan.recoflow.messaging.producer;
 
-import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.stream.Stream;
 
 import com.besteaydogan.recoflow.common.config.ProductViewProducerProperties;
 import com.besteaydogan.recoflow.messaging.model.ProductViewEvent;
@@ -39,9 +39,20 @@ public class ProductViewProducerRunner implements ApplicationRunner {
 
     @Override
     public void run(ApplicationArguments arguments) {
-        List<ProductViewEvent> events = fileReader.read(properties.filePath());
-        LOGGER.info("Loaded {} product-view source records", events.size());
-        executor.submit(() -> producer.publish(events));
+        Stream<ProductViewEvent> events = fileReader.stream(properties.filePath());
+        LOGGER.info("Started streaming product-view source records from {}", properties.filePath());
+        try {
+            executor.execute(() -> {
+                try (events) {
+                    producer.publish(events);
+                } catch (RuntimeException exception) {
+                    LOGGER.error("Product-view publication run failed", exception);
+                }
+            });
+        } catch (RuntimeException exception) {
+            events.close();
+            throw exception;
+        }
     }
 
     @PreDestroy

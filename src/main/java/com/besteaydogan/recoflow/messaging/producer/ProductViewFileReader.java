@@ -1,12 +1,11 @@
 package com.besteaydogan.recoflow.messaging.producer;
 
-import java.io.BufferedReader;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.stream.Stream;
 
 import com.besteaydogan.recoflow.messaging.model.ProductViewEvent;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -26,27 +25,25 @@ public class ProductViewFileReader {
         this.objectMapper = objectMapper;
     }
 
-    public List<ProductViewEvent> read(String filePath) {
+    public Stream<ProductViewEvent> stream(String filePath) {
         Path path = Path.of(filePath);
         if (!Files.isRegularFile(path) || !Files.isReadable(path)) {
             throw new IllegalStateException("Product-view file is missing or unreadable: " + path);
         }
 
-        List<ProductViewEvent> events = new ArrayList<>();
-        try (BufferedReader reader = Files.newBufferedReader(path, StandardCharsets.UTF_8)) {
-            String line;
-            long lineNumber = 0;
-            while ((line = reader.readLine()) != null) {
-                lineNumber++;
-                if (line.isBlank()) {
-                    continue;
-                }
-                parseLine(line, lineNumber).ifPresent(events::add);
-            }
+        AtomicLong lineNumber = new AtomicLong();
+        try {
+            return Files.lines(path, StandardCharsets.UTF_8)
+                    .<ProductViewEvent>mapMulti((line, downstream) -> {
+                        long currentLine = lineNumber.incrementAndGet();
+                        if (line.isBlank()) {
+                            return;
+                        }
+                        parseLine(line, currentLine).ifPresent(downstream);
+                    });
         } catch (IOException exception) {
             throw new IllegalStateException("Could not read product-view file: " + path, exception);
         }
-        return List.copyOf(events);
     }
 
     private java.util.Optional<ProductViewEvent> parseLine(String line, long lineNumber) {
